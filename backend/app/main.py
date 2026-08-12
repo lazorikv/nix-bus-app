@@ -2,11 +2,14 @@ import logging
 import time
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.database import get_db
 from app.logging_config import configure_logging, get_logger, log_event
 from app.routers import auth, buses, cities, orders, payment, trips
 
@@ -71,7 +74,15 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 @app.get("/health", tags=["meta"])
 def health() -> dict:
+    """Liveness probe — the process is up. No external dependencies checked."""
     return {"status": "ok"}
+
+
+@app.get("/health/ready", tags=["meta"])
+def readiness(db: Session = Depends(get_db)) -> dict:
+    """Readiness probe — verifies the database is reachable."""
+    db.execute(text("SELECT 1"))
+    return {"status": "ready"}
 
 
 app.include_router(auth.router)
