@@ -7,8 +7,15 @@ name: Claude Code Review
 # → Actions). Remove or disable this workflow if the secret is not configured.
 
 on:
+  # Review once when a PR opens or reopens — NOT on every pushed commit.
+  # Each run is a billed Claude agent invocation, so `synchronize` is omitted.
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, reopened]
+
+# Cancel a still-running review if a newer one starts for the same PR.
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -35,6 +42,8 @@ jobs:
           # Grant the tools needed to actually post feedback on the PR. Without
           # these the agent runs but cannot comment, so the job goes green silent.
           claude_args: |
+            --model claude-sonnet-5
+            --max-turns 20
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
           prompt: |
             Repo: ${{ github.repository }}
