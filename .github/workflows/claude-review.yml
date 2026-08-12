@@ -1,0 +1,38 @@
+name: Claude Code Review
+
+# Runs an AI review pass on every pull request diff. The bot posts its findings
+# as PR comments; a human still reads, accepts/rejects each, and merges.
+#
+# Requires repository secret ANTHROPIC_API_KEY (Settings → Secrets and variables
+# → Actions). Remove or disable this workflow if the secret is not configured.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: AI code review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review the pull request diff for this bus-management app.
+            Focus on correctness of the domain core: atomic seat reservation
+            (no read-then-write, seats_left never negative), payment webhook
+            idempotency and seat restoration on failure, order-status
+            transitions, and RBAC enforcement on protected endpoints.
+            Also flag missing tests for changed domain logic, and any lint/type
+            issues. Post concrete, actionable comments on the diff; skip praise.
