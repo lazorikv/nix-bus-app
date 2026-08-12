@@ -35,7 +35,7 @@ jobs:
           # Grant the tools needed to actually post feedback on the PR. Without
           # these the agent runs but cannot comment, so the job goes green silent.
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
           prompt: |
             Repo: ${{ github.repository }}
             PR number: ${{ github.event.pull_request.number }}
