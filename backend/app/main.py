@@ -81,7 +81,10 @@ def health() -> dict:
 @app.get("/health/ready", tags=["meta"])
 def readiness(db: Session = Depends(get_db)) -> dict:
     """Readiness probe — verifies the database is reachable."""
-    db.execute(text("SELECT 1"))
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=503, detail="Database unavailable") from exc
     return {"status": "ready"}
 
 
