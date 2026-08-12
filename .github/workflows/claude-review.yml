@@ -29,6 +29,9 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Use the workflow's built-in token so the action does not require the
+          # Claude Code GitHub App to be installed on the repo.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Review the pull request diff for this bus-management app.
             Focus on correctness of the domain core: atomic seat reservation
