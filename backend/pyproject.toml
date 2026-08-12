@@ -1,0 +1,64 @@
+[project]
+name = "bus-app-backend"
+version = "0.1.0"
+description = "Bus management backend (FastAPI)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
+    "bcrypt<4.1",
+    "python-multipart>=0.0.9",
+    "boto3>=1.34",
+    "reportlab>=4.2",
+    "email-validator>=2.1",
+    "pillow>=10.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "httpx>=0.27",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-python-jose",
+    "boto3-stubs[s3]",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4"]
+ignore = [
+    "B008",   # FastAPI uses function calls in argument defaults (Depends)
+    "UP042",  # str+Enum is intentional for portable JSON-serializable enums
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py", "app/logging_config.py"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app"]
