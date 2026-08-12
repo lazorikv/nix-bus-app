@@ -32,11 +32,22 @@ jobs:
           # Use the workflow's built-in token so the action does not require the
           # Claude Code GitHub App to be installed on the repo.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Grant the tools needed to actually post feedback on the PR. Without
+          # these the agent runs but cannot comment, so the job goes green silent.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*)"
           prompt: |
-            Review the pull request diff for this bus-management app.
-            Focus on correctness of the domain core: atomic seat reservation
-            (no read-then-write, seats_left never negative), payment webhook
+            Repo: ${{ github.repository }}
+            PR number: ${{ github.event.pull_request.number }}
+
+            Review the pull request diff for this bus-management app. Focus on
+            correctness of the domain core: atomic seat reservation (no
+            read-then-write, seats_left never negative), payment webhook
             idempotency and seat restoration on failure, order-status
-            transitions, and RBAC enforcement on protected endpoints.
-            Also flag missing tests for changed domain logic, and any lint/type
-            issues. Post concrete, actionable comments on the diff; skip praise.
+            transitions, and RBAC enforcement on protected endpoints. Also flag
+            missing tests for changed domain logic and any lint/type issues.
+
+            For each concrete issue, leave an inline comment on the relevant line
+            using mcp__github_inline_comment__create_inline_comment. Then always
+            post one summary comment on the PR with `gh pr comment` — list the
+            findings, or state that no issues were found. Skip praise.
