@@ -42,3 +42,9 @@ class OrderPage(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class CancelResult(BaseModel):
+    order_id: int
+    status: OrderStatus
+    applied: bool  # False when the cancel was a no-op (already terminal)

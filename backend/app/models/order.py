@@ -14,6 +14,7 @@ class OrderStatus(str, enum.Enum):
     pending = "pending"
     paid = "paid"
     failed = "failed"
+    refunded = "refunded"
 
 
 class Order(TimestampMixin, Base):
