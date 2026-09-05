@@ -147,7 +147,12 @@ export function BookingPage() {
               <span>Total</span>
               <span>${total}</span>
             </p>
-            <button className="btn btn--primary btn--lg" onClick={onSubmit} disabled={submitting}>
+            <button
+              type="button"
+              className="btn btn--primary btn--lg"
+              onClick={onSubmit}
+              disabled={submitting}
+            >
               {submitting ? "Creating order…" : "Continue to payment"}
             </button>
             <p className="muted">Seats are reserved when you create the order.</p>
