@@ -49,7 +49,9 @@ addopts = "-q"
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/main.py", "app/logging_config.py"]
+# Bootstrap/CLI utilities, not request-serving domain logic — the 80% gate
+# guards the app core (routers/services/models), not these scripts.
+omit = ["app/main.py", "app/logging_config.py", "app/seed.py"]
 
 [tool.mypy]
 python_version = "3.11"

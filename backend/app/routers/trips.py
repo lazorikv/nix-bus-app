@@ -20,8 +20,6 @@ from app.services.photos import photo_urls
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 
-SortField = str
-
 
 def _stop_index(route: list[dict], city_id: int) -> int | None:
     for i, stop in enumerate(route):

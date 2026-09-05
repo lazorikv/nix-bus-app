@@ -1,7 +1,10 @@
-from fastapi import Depends, HTTPException, status
+import hmac
+
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models import User, UserRole
@@ -42,6 +45,21 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+def verify_webhook_secret(x_webhook_secret: str | None = Header(default=None)) -> None:
+    """Authenticate an incoming payment webhook via a shared secret.
+
+    A real gateway signs its callbacks; without this, anyone who can guess an
+    ``order_id`` could flip an arbitrary order to ``paid`` (free tickets) or
+    ``failed`` (release another customer's seats). Compared in constant time.
+    """
+    expected = settings.payment_webhook_secret
+    if x_webhook_secret is None or not hmac.compare_digest(x_webhook_secret, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature",
+        )
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:

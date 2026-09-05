@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 
+    # Shared secret a real payment gateway sends with its webhook callbacks.
+    payment_webhook_secret: str = "change-me-webhook-secret"
+
     # MinIO / S3-compatible object storage
     s3_endpoint_url: str = "http://localhost:9000"
     # Endpoint embedded in presigned URLs served to clients (browser-reachable).
