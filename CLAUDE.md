@@ -8,8 +8,11 @@ Full-stack "Bus Management" app: FastAPI backend + React/Vite/TypeScript fronten
 
 ## Layout
 
-- `backend/` — FastAPI app (`app/`), tests (`tests/`), `pyproject.toml`.
-  - `app/models/` SQLAlchemy models · `app/schemas/` Pydantic schemas · `app/routers/` API endpoints · `app/services/` domain logic (seats, payment, photos, tickets) · `app/core/` security & deps · `app/storage.py` MinIO/S3 wrapper.
+- `backend/` — FastAPI app (`app/`), tests (`tests/`), `pyproject.toml`. Package-by-feature layout:
+  - `app/main.py` — `create_app()` factory · `app/router.py` — `create_router()` aggregator.
+  - `app/modules/<feature>/` — one vertical slice per feature: `routes.py` (thin HTTP handlers), `schemas.py` (Pydantic request/response), `service.py` (domain logic + queries, as an injectable class). Features: `auth`, `cities`, `buses` (+`photos.py`), `trips`, `orders` (+`seats.py`), `payment` (+`tickets.py`).
+  - `app/core/` — cross-cutting: `config.py`, `security.py`, `deps.py` (RBAC), `exceptions.py` + `exception_handlers.py` (domain errors → HTTP), `logging.py`, `pagination.py` (generic `Page[T]`).
+  - `app/infrastructure/` — technical: `db/session.py` (engine, `Session`, `get_session`, `Base`), `db/models/` (centralized SQLAlchemy models), `storage.py` (MinIO/S3 wrapper).
 - `frontend/` — React SPA (`src/pages`, `src/components`, `src/api`, `src/auth`).
 - `docker-compose.yml` — app + Postgres + MinIO.
 - `.github/workflows/` — CI (lint, type-check, tests) and AI code review.
@@ -49,7 +52,9 @@ docker compose up --build
 - **TDD for domain logic.** Any change to seat reservation, the payment webhook, or order-status transitions is written test-first (red → green). Do not backfill tests after the fact to satisfy the coverage gate.
 - **Coverage gate is 80%** (`--cov-fail-under=80`). Keep it green; if it drops, add real tests for the uncovered behavior rather than lowering the bar.
 - **RBAC on every protected endpoint.** admin / user / anonymous — enforce with the dependencies in `app/core/deps.py`. Cover permission enforcement in tests.
-- **Seat reservation must stay atomic** — a single `UPDATE ... WHERE seats_left >= n RETURNING`, never a read-then-write. `seats_left` must never go negative; the concurrency test in `tests/test_seats_concurrency.py` proves it.
+- **Thin routes, service classes, domain exceptions.** Routes inject a service via `Annotated[Service, Depends()]`, call one method, and return the result — no business logic or lookups in routes. Services raise domain exceptions from `app/core/exceptions.py` (never `HTTPException`); `app/core/exception_handlers.py` translates them to HTTP responses (registered last in `create_app()`).
+- **The DB stays synchronous** (psycopg2, `Session`). This is a deliberate deviation from the package's async FastAPI pattern, kept so the thread-based concurrency proof in `tests/test_seats_concurrency.py` exercises genuine parallel DB contention. The domain services (`orders`, `payment`, `seats`) own their transaction boundary and `commit()` explicitly after locking — do not defer these commits to the session provider, and do not convert the DB layer to async.
+- **Seat reservation must stay atomic** — a single `UPDATE ... WHERE seats_left >= n RETURNING`, never a read-then-write (`app/modules/orders/seats.py`). `seats_left` must never go negative; the concurrency test in `tests/test_seats_concurrency.py` proves it.
 - **Payment webhook is idempotent** and restores seats on failure. A repeated webhook for the same order must not double-apply.
 - **Lint/format/types must pass** before a PR: `ruff check`, `ruff format --check`, `mypy app`, `npm run lint`, `npm run build`.
 - **Never commit** `.env`, secrets, or the project brief PDFs (`*.pdf` is gitignored).

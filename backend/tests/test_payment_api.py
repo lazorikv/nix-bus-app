@@ -1,5 +1,5 @@
-import app.routers.payment as payment_module
-from app.config import settings
+import app.modules.payment.routes as payment_module
+from app.core.config import settings
 
 
 def _secret_headers() -> dict[str, str]:

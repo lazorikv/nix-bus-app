@@ -4,7 +4,7 @@ from collections.abc import Generator
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import get_db
+from app.infrastructure.db.session import get_session
 from app.main import app
 
 
@@ -31,11 +31,11 @@ def test_readiness_503_when_db_unreachable(client) -> None:
     def _broken_db() -> Generator[_BrokenSession, None, None]:
         yield _BrokenSession()
 
-    app.dependency_overrides[get_db] = _broken_db
+    app.dependency_overrides[get_session] = _broken_db
     try:
         resp = client.get("/health/ready")
     finally:
-        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_session, None)
 
     assert resp.status_code == 503
     assert resp.json()["detail"] == "Database unavailable"

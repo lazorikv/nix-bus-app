@@ -6,15 +6,22 @@ and a repeated cancel is a no-op.
 
 from decimal import Decimal
 
-from app.models import Order, OrderStatus, Trip
-from app.services.orders import OrderNotFound, cancel_order
-from app.services.seats import reserve_seats
+import pytest
+
+from app.core.exceptions import NotFoundError
+from app.infrastructure.db.models import Order, OrderStatus, Trip
+from app.modules.orders.seats import SeatsService
+from app.modules.orders.service import OrdersService
+
+
+def _orders_service(db) -> OrdersService:
+    return OrdersService(db, SeatsService(db))
 
 
 def _make_order(
     db, trip: Trip, passenger_count: int = 2, status: OrderStatus = OrderStatus.paid
 ) -> Order:
-    reserve_seats(db, trip.id, passenger_count)
+    SeatsService(db).reserve(trip.id, passenger_count)
     order = Order(
         trip_id=trip.id,
         user_id=None,
@@ -43,7 +50,7 @@ def test_cancel_paid_order_restores_seats_and_sets_refunded(db, sample_trip):
     db.refresh(sample_trip)
     assert sample_trip.seats_left == start_seats - 3
 
-    result = cancel_order(db, order.id)
+    result = _orders_service(db).cancel_order(order.id)
 
     assert result.status == OrderStatus.refunded
     assert result.applied is True
@@ -56,9 +63,10 @@ def test_cancel_paid_order_restores_seats_and_sets_refunded(db, sample_trip):
 def test_cancel_is_idempotent_and_restores_seats_once(db, sample_trip):
     start_seats = sample_trip.seats_left
     order = _make_order(db, sample_trip, 2, status=OrderStatus.paid)
+    service = _orders_service(db)
 
-    first = cancel_order(db, order.id)
-    second = cancel_order(db, order.id)  # duplicate request
+    first = service.cancel_order(order.id)
+    second = service.cancel_order(order.id)  # duplicate request
 
     assert first.applied is True
     assert second.applied is False  # no-op
@@ -72,7 +80,7 @@ def test_cancel_pending_order_also_restores_seats(db, sample_trip):
     start_seats = sample_trip.seats_left
     order = _make_order(db, sample_trip, 1, status=OrderStatus.pending)
 
-    result = cancel_order(db, order.id)
+    result = _orders_service(db).cancel_order(order.id)
 
     assert result.applied is True
     assert result.status == OrderStatus.refunded
@@ -83,7 +91,7 @@ def test_cancel_pending_order_also_restores_seats(db, sample_trip):
 def test_cancel_failed_order_is_noop(db, sample_trip):
     order = _make_order(db, sample_trip, 2, status=OrderStatus.failed)
 
-    result = cancel_order(db, order.id)
+    result = _orders_service(db).cancel_order(order.id)
 
     assert result.applied is False
     db.refresh(order)
@@ -91,8 +99,5 @@ def test_cancel_failed_order_is_noop(db, sample_trip):
 
 
 def test_cancel_unknown_order_raises(db):
-    try:
-        cancel_order(db, 999999)
-        raise AssertionError("expected OrderNotFound")
-    except OrderNotFound:
-        pass
+    with pytest.raises(NotFoundError):
+        _orders_service(db).cancel_order(999999)

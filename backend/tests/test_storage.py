@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from botocore.exceptions import ClientError
 
-import app.storage as storage
+import app.infrastructure.storage as storage
 
 
 def _fake_client(monkeypatch: object) -> MagicMock:

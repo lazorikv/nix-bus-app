@@ -14,8 +14,8 @@ findings for the human to act on.
 
 Start from the working diff (`git diff`, `git diff --staged`, or against
 `origin/main`). Read only the files the diff touches, plus what you need to
-understand them (`app/models`, `app/schemas`, `app/routers`, `app/services`,
-`app/core`). Use Grep/Glob to locate related code.
+understand them (`app/modules/<feature>/` for routes/schemas/service,
+`app/infrastructure/db/models`, `app/core`). Use Grep/Glob to locate related code.
 
 ## What to verify
 
