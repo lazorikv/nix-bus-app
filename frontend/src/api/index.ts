@@ -82,7 +82,9 @@ export const ordersApi = {
     apiRequest<Order>("/orders", { method: "POST", body: { trip_id, passengers } }),
   list: (page = 1, page_size = 10) =>
     apiRequest<Page<Order>>(`/orders?page=${page}&page_size=${page_size}`),
-  get: (id: number) => apiRequest<Order>(`/orders/${id}`, { auth: false }),
+  // Token sent when present (owner/admin), omitted for an anonymous guest
+  // polling their own NULL-owner order — both flows are authorized server-side.
+  get: (id: number) => apiRequest<Order>(`/orders/${id}`),
 };
 
 export const paymentApi = {
