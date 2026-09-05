@@ -53,13 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await authApi.me());
   }, []);
 
-  const register = useCallback(
-    async (email: string, password: string) => {
-      await authApi.register(email, password);
-      await login(email, password);
-    },
-    [login],
-  );
+  // Registration does not log the user in — they authenticate separately afterwards.
+  const register = useCallback(async (email: string, password: string) => {
+    await authApi.register(email, password);
+  }, []);
 
   const logout = useCallback(() => {
     setToken(null);
