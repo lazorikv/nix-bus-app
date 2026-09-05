@@ -119,6 +119,15 @@ Environment variables — see `backend/.env.example`.
 
 Full interactive documentation lives at `/docs` (Swagger UI).
 
+### Payment webhook auth
+
+`POST /payment/webhook` authenticates the caller with a shared secret sent in the
+`X-Webhook-Secret` header (`PAYMENT_WEBHOOK_SECRET`, compared in constant time); a
+request with a missing or wrong secret is rejected with `401` before any status
+change, so an order can't be flipped to `paid`/`failed` by an unauthenticated caller.
+The `POST /payment/simulate/{order_id}` mock-gateway trigger used by the booking
+flow is a development helper — it returns `404` when `ENVIRONMENT=production`.
+
 ## Observability
 
 Structured logging (`app/logging_config.py`): request events (`request.completed`), errors
