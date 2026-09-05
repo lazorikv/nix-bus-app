@@ -203,6 +203,11 @@ select:focus {
   font-size: 0.85rem;
   margin: 0;
 }
+.form-success {
+  color: var(--success);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
 .field-error {
   color: var(--danger);
   font-size: 0.78rem;

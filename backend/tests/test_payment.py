@@ -2,13 +2,20 @@
 
 from decimal import Decimal
 
-from app.models import Order, OrderStatus, Trip
-from app.services.payment import OrderNotFound, process_payment
-from app.services.seats import reserve_seats
+import pytest
+
+from app.core.exceptions import NotFoundError
+from app.infrastructure.db.models import Order, OrderStatus, Trip
+from app.modules.orders.seats import SeatsService
+from app.modules.payment.service import PaymentService
+
+
+def _payment_service(db) -> PaymentService:
+    return PaymentService(db, SeatsService(db))
 
 
 def _make_order(db, trip: Trip, passenger_count: int = 2) -> Order:
-    reserve_seats(db, trip.id, passenger_count)
+    SeatsService(db).reserve(trip.id, passenger_count)
     order = Order(
         trip_id=trip.id,
         user_id=None,
@@ -34,7 +41,7 @@ def _make_order(db, trip: Trip, passenger_count: int = 2) -> Order:
 def test_success_transitions_to_paid_and_generates_ticket(db, sample_trip):
     order = _make_order(db, sample_trip, 2)
 
-    result = process_payment(db, order.id, success=True)
+    result = _payment_service(db).process(order.id, success=True)
 
     assert result.status == OrderStatus.paid
     assert result.applied is True
@@ -49,7 +56,7 @@ def test_failure_transitions_to_failed_and_restores_seats(db, sample_trip):
     db.refresh(sample_trip)
     assert sample_trip.seats_left == start_seats - 3
 
-    result = process_payment(db, order.id, success=False)
+    result = _payment_service(db).process(order.id, success=False)
 
     assert result.status == OrderStatus.failed
     assert result.applied is True
@@ -59,10 +66,11 @@ def test_failure_transitions_to_failed_and_restores_seats(db, sample_trip):
 
 def test_webhook_is_idempotent_on_repeated_success(db, sample_trip):
     order = _make_order(db, sample_trip, 1)
+    service = _payment_service(db)
 
-    first = process_payment(db, order.id, success=True)
-    second = process_payment(db, order.id, success=True)
-    third = process_payment(db, order.id, success=False)  # contradictory replay
+    first = service.process(order.id, success=True)
+    second = service.process(order.id, success=True)
+    third = service.process(order.id, success=False)  # contradictory replay
 
     assert first.applied is True
     assert second.applied is False  # no-op
@@ -74,17 +82,15 @@ def test_webhook_is_idempotent_on_repeated_success(db, sample_trip):
 def test_repeated_failure_does_not_double_restore_seats(db, sample_trip):
     start_seats = sample_trip.seats_left
     order = _make_order(db, sample_trip, 2)
+    service = _payment_service(db)
 
-    process_payment(db, order.id, success=False)
-    process_payment(db, order.id, success=False)  # duplicate delivery
+    service.process(order.id, success=False)
+    service.process(order.id, success=False)  # duplicate delivery
 
     db.refresh(sample_trip)
     assert sample_trip.seats_left == start_seats  # restored exactly once
 
 
 def test_unknown_order_raises(db):
-    try:
-        process_payment(db, 999999, success=True)
-        raise AssertionError("expected OrderNotFound")
-    except OrderNotFound:
-        pass
+    with pytest.raises(NotFoundError):
+        _payment_service(db).process(999999, success=True)

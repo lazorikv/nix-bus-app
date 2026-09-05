@@ -14,9 +14,9 @@ TEST_DATABASE_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from app.core.security import create_access_token, hash_password  # noqa: E402
-from app.database import Base, get_db  # noqa: E402
+from app.infrastructure.db.models import Bus, Trip, User, UserRole  # noqa: E402
+from app.infrastructure.db.session import Base, get_session  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Bus, Trip, User, UserRole  # noqa: E402
 
 engine = create_engine(TEST_DATABASE_URL, future=True)
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
@@ -50,9 +50,9 @@ def db() -> Generator[Session, None, None]:
 @pytest.fixture(autouse=True)
 def _mock_storage(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stub object storage so tests never touch MinIO."""
-    import app.routers.orders as orders_mod
-    import app.services.photos as photos_mod
-    import app.services.tickets as tickets_mod
+    import app.modules.buses.photos as photos_mod
+    import app.modules.orders.service as orders_mod
+    import app.modules.payment.tickets as tickets_mod
 
     monkeypatch.setattr(photos_mod, "upload_bytes", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -66,14 +66,14 @@ def _mock_storage(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
-    def override_get_db() -> Generator[Session, None, None]:
+    def override_get_session() -> Generator[Session, None, None]:
         session = TestingSessionLocal()
         try:
             yield session
         finally:
             session.close()
 
-    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session] = override_get_session
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

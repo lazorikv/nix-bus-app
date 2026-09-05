@@ -1,20 +1,21 @@
 import hmac
+from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.core.config import settings
 from app.core.security import decode_access_token
-from app.database import get_db
-from app.models import User, UserRole
+from app.infrastructure.db.models import User, UserRole
+from app.infrastructure.db.session import get_session
 
 # auto_error=False so the same scheme works for optional auth (anonymous orders).
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _user_from_credentials(
-    credentials: HTTPAuthorizationCredentials | None, db: Session
+    credentials: HTTPAuthorizationCredentials | None, session: Session
 ) -> User | None:
     if credentials is None:
         return None
@@ -24,19 +25,19 @@ def _user_from_credentials(
     sub = payload.get("sub")
     if sub is None:
         return None
-    return db.get(User, int(sub))
+    return session.get(User, int(sub))
 
 
 def get_current_user_optional(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    session: Annotated[Session, Depends(get_session)],
 ) -> User | None:
     """Return the authenticated user, or None for anonymous access."""
-    return _user_from_credentials(credentials, db)
+    return _user_from_credentials(credentials, session)
 
 
 def get_current_user(
-    user: User | None = Depends(get_current_user_optional),
+    user: Annotated[User | None, Depends(get_current_user_optional)],
 ) -> User:
     if user is None:
         raise HTTPException(
@@ -47,7 +48,7 @@ def get_current_user(
     return user
 
 
-def verify_webhook_secret(x_webhook_secret: str | None = Header(default=None)) -> None:
+def verify_webhook_secret(x_webhook_secret: Annotated[str | None, Header()] = None) -> None:
     """Authenticate an incoming payment webhook via a shared secret.
 
     A real gateway signs its callbacks; without this, anyone who can guess an
@@ -62,7 +63,7 @@ def verify_webhook_secret(x_webhook_secret: str | None = Header(default=None)) -
         )
 
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
+def require_admin(user: Annotated[User, Depends(get_current_user)]) -> User:
     if user.role != UserRole.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

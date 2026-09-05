@@ -91,14 +91,14 @@ cd frontend && npm run lint && npm run build
 
 The brief requires photo upload to S3 and retrieval via presigned URL. Instead of AWS S3 this
 project uses **MinIO** — it speaks the same S3 API, so the same `boto3` client works against both;
-only the endpoint and credentials change. Implementation lives in `backend/app/storage.py`:
+only the endpoint and credentials change. Implementation lives in `backend/app/infrastructure/storage.py`:
 
 - **Two clients.** Inside docker the backend reaches MinIO over the internal address
   `S3_ENDPOINT_URL` (`http://minio:9000`). Presigned URLs, however, are opened by the user's
   browser, so they are signed with a separate client using the public `S3_PUBLIC_ENDPOINT_URL`
   (`http://localhost:9000`). Otherwise the signature would not match the host the browser sees.
 - **Upload** (admin creates/updates a bus): file type is validated (JPEG/PNG), the image is stored
-  in bucket `S3_BUCKET`, and a thumbnail is generated (Pillow) — see `app/services/photos.py`.
+  in bucket `S3_BUCKET`, and a thumbnail is generated (Pillow) — see `app/modules/buses/photos.py`.
 - **Retrieval**: the client receives a time-limited presigned GET URL instead of a public link
   (`PRESIGNED_URL_EXPIRE_SECONDS`, default 1 hour).
 - **The bucket** is created idempotently on startup (`ensure_bucket()` in `app/init_db.py`).
@@ -130,7 +130,7 @@ flow is a development helper — it returns `404` when `ENVIRONMENT=production`.
 
 ## Observability
 
-Structured logging (`app/logging_config.py`): request events (`request.completed`), errors
+Structured logging (`app/core/logging.py`): request events (`request.completed`), errors
 (`request.error`, `request.unhandled_exception`), and business events (order creation, payment,
 seat reservation). Every request is assigned an `X-Request-ID`.
 

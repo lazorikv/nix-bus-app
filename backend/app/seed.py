@@ -26,12 +26,12 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
+from app.core.logging import configure_logging, log_event
 from app.core.security import hash_password
-from app.database import Base, SessionLocal, engine
-from app.logging_config import configure_logging, log_event
-from app.models import Bus, City, Order, OrderStatus, Trip, User, UserRole
-from app.services.seats import reserve_seats
-from app.services.tickets import generate_and_store_ticket
+from app.infrastructure.db.models import Bus, City, Order, OrderStatus, Trip, User, UserRole
+from app.infrastructure.db.session import Base, SessionLocal, engine
+from app.modules.orders.seats import SeatsService
+from app.modules.payment.tickets import generate_and_store_ticket
 
 logger = logging.getLogger("app.seed")
 
@@ -152,7 +152,7 @@ def seed(force: bool = False, large: bool = False) -> None:
             db.commit()
             db.refresh(bus)
             try:
-                from app.services.photos import process_and_upload
+                from app.modules.buses.photos import process_and_upload
 
                 photo_key, thumb_key = process_and_upload("image/png", _make_photo_png(color))
                 bus.photo_key = photo_key
@@ -279,7 +279,7 @@ def _seed_order(
     # Reserve seats for orders that hold them (pending/paid); a failed order
     # behaves as if seats were already restored.
     if status in (OrderStatus.pending, OrderStatus.paid):
-        reserve_seats(db, trip.id, seat_count)
+        SeatsService(db).reserve(trip.id, seat_count)
 
     order = Order(
         trip_id=trip.id,
@@ -393,7 +393,7 @@ def _seed_large(db, demo_user: User) -> None:
         db.commit()
         db.refresh(bus)
         try:
-            from app.services.photos import process_and_upload
+            from app.modules.buses.photos import process_and_upload
 
             photo_key, thumb_key = process_and_upload("image/png", _make_photo_png(color))
             bus.photo_key = photo_key
@@ -451,8 +451,8 @@ def _seed_large(db, demo_user: User) -> None:
             for _ in range(n_pax)
         ]
         status = rng.choice(status_pool)
-        if status in (OrderStatus.pending, OrderStatus.paid) and not reserve_seats(
-            db, trip.id, n_pax
+        if status in (OrderStatus.pending, OrderStatus.paid) and not SeatsService(db).reserve(
+            trip.id, n_pax
         ):
             # Trip sold out — record as a failed order that holds no seats.
             status = OrderStatus.failed

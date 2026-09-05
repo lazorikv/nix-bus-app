@@ -23,7 +23,8 @@ export function RegisterPage() {
     setSubmitting(true);
     try {
       await register(email, password);
-      navigate("/");
+      // Registration no longer logs in — send the user to log in with their new account.
+      navigate("/login", { state: { registered: true, email } });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

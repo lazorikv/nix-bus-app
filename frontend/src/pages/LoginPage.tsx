@@ -1,12 +1,18 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+
+interface LoginLocationState {
+  registered?: boolean;
+  email?: string;
+}
 
 export function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const state = useLocation().state as LoginLocationState | null;
+  const [email, setEmail] = useState(state?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -28,6 +34,9 @@ export function LoginPage() {
   return (
     <div className="card card--narrow">
       <h1>Log in</h1>
+      {state?.registered && (
+        <p className="form-success">Account created — please log in.</p>
+      )}
       <form onSubmit={onSubmit} className="form">
         <label>
           Email

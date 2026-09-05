@@ -10,8 +10,8 @@ import threading
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models import Bus, Trip
-from app.services.seats import reserve_seats
+from app.infrastructure.db.models import Bus, Trip
+from app.modules.orders.seats import SeatsService
 from tests.conftest import TEST_DATABASE_URL
 
 
@@ -48,7 +48,7 @@ def test_concurrent_reservations_never_oversell(db):
         session = Session()
         try:
             barrier.wait()  # release all threads at once
-            ok = reserve_seats(session, trip_id, 1)
+            ok = SeatsService(session).reserve(trip_id, 1)
             session.commit()
             with results_lock:
                 results.append(ok)
@@ -91,12 +91,13 @@ def test_reserve_fails_when_insufficient(db):
     db.add(trip)
     db.commit()
 
-    assert reserve_seats(db, trip.id, 3) is False  # not enough
+    seats = SeatsService(db)
+    assert seats.reserve(trip.id, 3) is False  # not enough
     db.commit()
     db.refresh(trip)
     assert trip.seats_left == 2  # unchanged
 
-    assert reserve_seats(db, trip.id, 2) is True
+    assert seats.reserve(trip.id, 2) is True
     db.commit()
     db.refresh(trip)
     assert trip.seats_left == 0

@@ -45,7 +45,7 @@ def test_order_rejected_when_sold_out(client, user_headers, sample_trip, db):
     )
     assert r.status_code == 201
 
-    from app.models import Trip
+    from app.infrastructure.db.models import Trip
 
     trip = db.get(Trip, sample_trip.id)
     trip.seats_left = 0

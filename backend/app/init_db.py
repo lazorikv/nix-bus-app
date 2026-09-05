@@ -8,11 +8,11 @@ import logging
 
 from sqlalchemy import select
 
-from app.config import settings
+from app.core.config import settings
+from app.core.logging import configure_logging, log_event
 from app.core.security import hash_password
-from app.database import Base, SessionLocal, engine
-from app.logging_config import configure_logging, log_event
-from app.models import User, UserRole  # noqa: F401 (ensures models are registered)
+from app.infrastructure.db.models import User, UserRole  # noqa: F401 (registers models)
+from app.infrastructure.db.session import Base, SessionLocal, engine
 
 logger = logging.getLogger("app.init")
 
@@ -23,7 +23,7 @@ def init_db() -> None:
     # Ensure the object-storage bucket exists (best-effort; storage may be
     # unavailable in some environments).
     try:
-        from app.storage import ensure_bucket
+        from app.infrastructure.storage import ensure_bucket
 
         ensure_bucket()
         log_event(logger, logging.INFO, "init.bucket_ready")
