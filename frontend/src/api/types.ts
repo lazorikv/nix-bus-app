@@ -66,6 +66,8 @@ export interface Order {
   price: string;
   passengers: Passenger[];
   ticket_pdf_url: string | null;
+  origin_city_name: string | null;
+  destination_city_name: string | null;
   created_at: string;
   updated_at: string;
 }

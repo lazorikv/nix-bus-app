@@ -77,9 +77,21 @@ export const tripsApi = {
   remove: (id: number) => apiRequest<void>(`/trips/${id}`, { method: "DELETE" }),
 };
 
+export interface OrderSegment {
+  origin_city_id?: number;
+  destination_city_id?: number;
+}
+
 export const ordersApi = {
-  create: (trip_id: number, passengers: Omit<Passenger, "ticket_price">[]) =>
-    apiRequest<Order>("/orders", { method: "POST", body: { trip_id, passengers } }),
+  create: (
+    trip_id: number,
+    passengers: Omit<Passenger, "ticket_price">[],
+    segment: OrderSegment = {},
+  ) =>
+    apiRequest<Order>("/orders", {
+      method: "POST",
+      body: { trip_id, passengers, ...segment },
+    }),
   list: (page = 1, page_size = 10) =>
     apiRequest<Page<Order>>(`/orders?page=${page}&page_size=${page_size}`),
   // Token sent when present (owner/admin), omitted for an anonymous guest

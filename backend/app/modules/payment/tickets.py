@@ -18,6 +18,20 @@ from app.infrastructure.db.models import Order, Trip
 from app.infrastructure.storage import upload_bytes
 
 
+def segment_endpoints(order: Order, trip: Trip) -> tuple[str, str]:
+    """Boarding/drop-off city names for the ticket.
+
+    Uses the order's booked segment when present, otherwise the trip's first
+    and last stop.
+    """
+    if order.origin_city_name and order.destination_city_name:
+        return order.origin_city_name, order.destination_city_name
+    route = trip.route or []
+    origin = route[0].get("city_name", "?") if route else "?"
+    destination = route[-1].get("city_name", "?") if route else "?"
+    return origin, destination
+
+
 def render_ticket_pdf(order: Order, trip: Trip) -> bytes:
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, title=f"Ticket #{order.id}")
@@ -32,11 +46,8 @@ def render_ticket_pdf(order: Order, trip: Trip) -> bytes:
     story.append(Paragraph(f"Total price: {order.price}", styles["Normal"]))
     story.append(Spacer(1, 0.5 * cm))
 
-    route = trip.route or []
-    if route:
-        origin = route[0].get("city_name", "?")
-        destination = route[-1].get("city_name", "?")
-        story.append(Paragraph(f"Route: {origin} → {destination}", styles["Normal"]))
+    origin, destination = segment_endpoints(order, trip)
+    story.append(Paragraph(f"Route: {origin} → {destination}", styles["Normal"]))
     story.append(Spacer(1, 0.5 * cm))
 
     story.append(Paragraph("Passengers", styles["Heading3"]))

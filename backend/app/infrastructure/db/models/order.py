@@ -38,6 +38,10 @@ class Order(TimestampMixin, Base):
     # [{"first_name","last_name","email","ticket_price","age"}]
     passengers: Mapped[list] = mapped_column(JSONB, nullable=False)
     ticket_pdf_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    # Boarding/drop-off stops for the booked segment, denormalized from the
+    # trip route at creation. NULL means the whole trip (first → last stop).
+    origin_city_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    destination_city_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     trip = relationship("Trip")
     user = relationship("User")

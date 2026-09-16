@@ -92,3 +92,55 @@ def test_user_cannot_view_another_users_order(client, user_headers, admin_header
 
 def test_list_orders_requires_auth(client):
     assert client.get("/orders").status_code == 401
+
+
+def test_order_stores_selected_segment(client, sample_trip):
+    # sample_trip route: Kyiv(city_id=1) -> Lviv(city_id=2)
+    r = client.post(
+        "/orders",
+        json={
+            "trip_id": sample_trip.id,
+            "passengers": _passengers(1),
+            "origin_city_id": 1,
+            "destination_city_id": 2,
+        },
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["origin_city_name"] == "Kyiv"
+    assert body["destination_city_name"] == "Lviv"
+
+
+def test_order_without_segment_covers_whole_trip(client, sample_trip):
+    body = client.post(
+        "/orders",
+        json={"trip_id": sample_trip.id, "passengers": _passengers(1)},
+    ).json()
+    assert body["origin_city_name"] is None
+    assert body["destination_city_name"] is None
+
+
+def test_order_rejects_reversed_segment(client, sample_trip):
+    r = client.post(
+        "/orders",
+        json={
+            "trip_id": sample_trip.id,
+            "passengers": _passengers(1),
+            "origin_city_id": 2,  # Lviv comes after Kyiv, so this order is invalid
+            "destination_city_id": 1,
+        },
+    )
+    assert r.status_code == 400
+
+
+def test_order_rejects_city_not_on_route(client, sample_trip):
+    r = client.post(
+        "/orders",
+        json={
+            "trip_id": sample_trip.id,
+            "passengers": _passengers(1),
+            "origin_city_id": 999,
+            "destination_city_id": 2,
+        },
+    )
+    assert r.status_code == 400
