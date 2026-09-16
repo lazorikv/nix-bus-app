@@ -14,7 +14,12 @@ from fastapi import Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
+from app.core.exceptions import (
+    BadRequestError,
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+)
 from app.core.logging import log_event
 from app.core.pagination import Page
 from app.infrastructure.db.models import Order, OrderStatus, Trip, User, UserRole
@@ -43,6 +48,12 @@ class OrdersService:
         if trip is None:
             raise NotFoundError(f"Trip(id={creation.trip_id}) not found")
 
+        # Validate the booked segment before touching seats so an invalid
+        # request fails without reserving anything.
+        origin_name, destination_name = self._resolve_segment(
+            trip, creation.origin_city_id, creation.destination_city_id
+        )
+
         seat_count = len(creation.passengers)
         # Atomic reservation: fails cleanly if not enough seats remain.
         if not self._seats.reserve(trip.id, seat_count):
@@ -59,6 +70,8 @@ class OrdersService:
             status=OrderStatus.pending,
             price=Decimal(trip.price) * seat_count,
             passengers=passengers,
+            origin_city_name=origin_name,
+            destination_city_name=destination_name,
         )
         self._session.add(order)
         self._session.commit()
@@ -119,6 +132,49 @@ class OrdersService:
         self._session.commit()
         self._session.refresh(order)
         return CancelResult(order_id=order_id, status=order.status, applied=True)
+
+    @staticmethod
+    def _resolve_segment(
+        trip: Trip, origin_city_id: int | None, destination_city_id: int | None
+    ) -> tuple[str | None, str | None]:
+        """Resolve the booked segment to (origin_name, destination_name).
+
+        Returns (None, None) for a whole-trip booking. A partial selection
+        defaults the missing end to the trip's first/last stop and is validated
+        against the route ordering.
+        """
+        if origin_city_id is None and destination_city_id is None:
+            return None, None
+
+        route: list[dict] = trip.route or []
+        if not route:
+            raise BadRequestError("Trip has no route")
+
+        origin_idx = (
+            0 if origin_city_id is None else OrdersService._stop_index(route, origin_city_id)
+        )
+        if origin_idx is None:
+            raise BadRequestError("origin_city_id is not a stop on this trip")
+
+        dest_idx = (
+            len(route) - 1
+            if destination_city_id is None
+            else OrdersService._stop_index(route, destination_city_id)
+        )
+        if dest_idx is None:
+            raise BadRequestError("destination_city_id is not a stop on this trip")
+
+        if origin_idx >= dest_idx:
+            raise BadRequestError("origin must come before destination on the route")
+
+        return route[origin_idx].get("city_name"), route[dest_idx].get("city_name")
+
+    @staticmethod
+    def _stop_index(route: list[dict], city_id: int) -> int | None:
+        for index, stop in enumerate(route):
+            if stop.get("city_id") == city_id:
+                return index
+        return None
 
     @staticmethod
     def _may_view(order: Order, current_user: User | None) -> bool:

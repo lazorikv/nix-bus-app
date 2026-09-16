@@ -20,6 +20,9 @@ class PassengerOut(PassengerIn):
 class OrderCreate(BaseModel):
     trip_id: int
     passengers: list[PassengerIn] = Field(min_length=1, max_length=50)
+    # Optional booked segment; when omitted the order covers the whole trip.
+    origin_city_id: int | None = None
+    destination_city_id: int | None = None
 
 
 class OrderOut(BaseModel):
@@ -32,6 +35,8 @@ class OrderOut(BaseModel):
     price: Decimal
     passengers: list[PassengerOut]
     ticket_pdf_url: str | None = None
+    origin_city_name: str | None = None
+    destination_city_name: str | None = None
     created_at: datetime
     updated_at: datetime
 

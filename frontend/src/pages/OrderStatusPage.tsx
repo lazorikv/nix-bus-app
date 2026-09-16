@@ -63,6 +63,14 @@ export function OrderStatusPage() {
           <p className="order-status__badge">
             <StatusBadge status={order.status} /> {polling && <span className="muted">· checking…</span>}
           </p>
+          {order.origin_city_name && order.destination_city_name && (
+            <p className="summary__row">
+              <span>Route</span>
+              <span>
+                {order.origin_city_name} → {order.destination_city_name}
+              </span>
+            </p>
+          )}
           <p className="summary__row">
             <span>Total</span>
             <span>${order.price}</span>

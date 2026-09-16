@@ -1,9 +1,10 @@
 import { FormEvent, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ordersApi, tripsApi } from "../api";
 import { ApiError } from "../api/client";
 import { AsyncView } from "../components/AsyncView";
 import { useAsync } from "../hooks/useAsync";
+import { resolveSegment } from "../lib/segment";
 
 interface PassengerForm {
   first_name: string;
@@ -18,6 +19,9 @@ export function BookingPage() {
   const { id } = useParams();
   const tripId = Number(id);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const from = searchParams.get("from") ? Number(searchParams.get("from")) : undefined;
+  const to = searchParams.get("to") ? Number(searchParams.get("to")) : undefined;
   const { data: trip, loading, error, reload } = useAsync(() => tripsApi.get(tripId), [tripId]);
 
   const [passengers, setPassengers] = useState<PassengerForm[]>([emptyPassenger()]);
@@ -65,6 +69,7 @@ export function BookingPage() {
           email: p.email.trim(),
           age: Number(p.age),
         })),
+        { origin_city_id: from, destination_city_id: to },
       );
       navigate(`/orders/${order.id}`);
     } catch (e) {
@@ -135,6 +140,17 @@ export function BookingPage() {
               <span>Trip</span>
               <span>{trip.name}</span>
             </p>
+            {(() => {
+              const seg = resolveSegment(trip.route, from, to);
+              return seg ? (
+                <p className="summary__row">
+                  <span>Route</span>
+                  <span>
+                    {seg.origin.city_name} → {seg.destination.city_name}
+                  </span>
+                </p>
+              ) : null;
+            })()}
             <p className="summary__row">
               <span>Price / seat</span>
               <span>${trip.price}</span>

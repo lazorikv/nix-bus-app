@@ -5,6 +5,7 @@ import type { Page, Trip } from "../api/types";
 import { AsyncView } from "../components/AsyncView";
 import { Pagination } from "../components/Pagination";
 import { useAsync } from "../hooks/useAsync";
+import { resolveSegment } from "../lib/segment";
 
 const PAGE_SIZE = 6;
 
@@ -15,6 +16,9 @@ export function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  // Origin/destination that produced the current results, so cards keep showing
+  // the searched segment even if the form is edited before the next search.
+  const [segment, setSegment] = useState<{ from?: number; to?: number }>({});
 
   async function runSearch(next: TripSearchParams) {
     setLoading(true);
@@ -24,6 +28,7 @@ export function HomePage() {
       const res = await tripsApi.search({ ...next, page_size: PAGE_SIZE });
       setResult(res);
       setParams(next);
+      setSegment({ from: next.origin, to: next.destination });
     } catch (err: any) {
       setError(err?.message ?? "Search failed");
     } finally {
@@ -136,7 +141,7 @@ export function HomePage() {
             <div className="results__count">{result?.total} trip(s) found</div>
             <div className="trip-grid">
               {result?.items.map((trip) => (
-                <TripCard key={trip.id} trip={trip} />
+                <TripCard key={trip.id} trip={trip} from={segment.from} to={segment.to} />
               ))}
             </div>
             <Pagination
@@ -151,11 +156,17 @@ export function HomePage() {
   );
 }
 
-function TripCard({ trip }: { trip: Trip }) {
-  const origin = trip.route[0];
-  const destination = trip.route[trip.route.length - 1];
+function TripCard({ trip, from, to }: { trip: Trip; from?: number; to?: number }) {
+  const seg = resolveSegment(trip.route, from, to) ?? {
+    origin: trip.route[0],
+    destination: trip.route[trip.route.length - 1],
+  };
+  const qs = new URLSearchParams();
+  if (from != null) qs.set("from", String(from));
+  if (to != null) qs.set("to", String(to));
+  const href = qs.toString() ? `/trips/${trip.id}?${qs}` : `/trips/${trip.id}`;
   return (
-    <Link to={`/trips/${trip.id}`} className="trip-card">
+    <Link to={href} className="trip-card">
       <div className="trip-card__photo">
         {trip.bus_thumbnail_url ? (
           <img src={trip.bus_thumbnail_url} alt="Bus" />
@@ -166,11 +177,11 @@ function TripCard({ trip }: { trip: Trip }) {
       <div className="trip-card__body">
         <h3>{trip.name}</h3>
         <p className="trip-card__route">
-          {origin?.city_name} → {destination?.city_name}
+          {seg.origin?.city_name} → {seg.destination?.city_name}
         </p>
         <p className="muted trip-card__time">
-          {new Date(origin?.time).toLocaleString()} —{" "}
-          {new Date(destination?.time).toLocaleString()}
+          {new Date(seg.origin?.time).toLocaleString()} —{" "}
+          {new Date(seg.destination?.time).toLocaleString()}
         </p>
         <div className="trip-card__footer">
           <span className="price">${trip.price}</span>
