@@ -4,24 +4,48 @@ import { ApiError } from "../../api/client";
 import { AsyncView } from "../../components/AsyncView";
 import { useAsync } from "../../hooks/useAsync";
 
+function validateCoordinates(longitude: number, latitude: number): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (Number.isNaN(longitude) || longitude < -180 || longitude > 180) {
+    errors.longitude = "Longitude must be between -180 and 180.";
+  }
+  if (Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
+    errors.latitude = "Latitude must be between -90 and 90.";
+  }
+  return errors;
+}
+
 export function AdminCities() {
   const { data, loading, error, reload } = useAsync(() => citiesApi.list(), []);
   const [form, setForm] = useState({ name: "", longitude: "", latitude: "" });
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setFieldErrors({});
+
+    const longitude = Number(form.longitude);
+    const latitude = Number(form.latitude);
+    const clientErrors = validateCoordinates(longitude, latitude);
+    if (Object.keys(clientErrors).length > 0) {
+      setFormError("Please fix the highlighted fields.");
+      setFieldErrors(clientErrors);
+      return;
+    }
+
     try {
-      await citiesApi.create({
-        name: form.name,
-        longitude: Number(form.longitude),
-        latitude: Number(form.latitude),
-      });
+      await citiesApi.create({ name: form.name, longitude, latitude });
       setForm({ name: "", longitude: "", latitude: "" });
       reload();
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Could not create city");
+      if (err instanceof ApiError) {
+        setFormError(err.message);
+        setFieldErrors(err.fieldErrors);
+      } else {
+        setFormError("Could not create city");
+      }
     }
   }
 
@@ -35,28 +59,40 @@ export function AdminCities() {
       <form className="card admin-form" onSubmit={onCreate}>
         <h3>Add city</h3>
         <div className="admin-form__row">
-          <input
-            placeholder="Name"
-            value={form.name}
-            required
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-          />
-          <input
-            placeholder="Longitude"
-            type="number"
-            step="any"
-            value={form.longitude}
-            required
-            onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-          />
-          <input
-            placeholder="Latitude"
-            type="number"
-            step="any"
-            value={form.latitude}
-            required
-            onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-          />
+          <div className="admin-form__field">
+            <input
+              placeholder="Name"
+              value={form.name}
+              required
+              aria-invalid={!!fieldErrors.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+            {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+          </div>
+          <div className="admin-form__field">
+            <input
+              placeholder="Longitude"
+              type="number"
+              step="any"
+              value={form.longitude}
+              required
+              aria-invalid={!!fieldErrors.longitude}
+              onChange={(e) => setForm({ ...form, longitude: e.target.value })}
+            />
+            {fieldErrors.longitude && <span className="field-error">{fieldErrors.longitude}</span>}
+          </div>
+          <div className="admin-form__field">
+            <input
+              placeholder="Latitude"
+              type="number"
+              step="any"
+              value={form.latitude}
+              required
+              aria-invalid={!!fieldErrors.latitude}
+              onChange={(e) => setForm({ ...form, latitude: e.target.value })}
+            />
+            {fieldErrors.latitude && <span className="field-error">{fieldErrors.latitude}</span>}
+          </div>
           <button className="btn btn--primary">Add</button>
         </div>
         {formError && <p className="form-error">{formError}</p>}
