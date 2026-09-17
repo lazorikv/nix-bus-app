@@ -19,7 +19,7 @@ function validateStops(stops: StopForm[]): Record<number, string> {
       return;
     }
     const time = new Date(s.time).getTime();
-    if (prevTime !== null && time <= prevTime) {
+    if (prevTime !== null && time < prevTime) {
       errors[i] = "Must be after the previous stop's time.";
     } else {
       prevTime = time;
@@ -55,8 +55,18 @@ export function AdminTrips() {
     });
   }
   const addStop = () => setStops((l) => [...l, { city_id: "", time: "" }]);
-  const removeStop = (i: number) =>
+  function removeStop(i: number) {
     setStops((l) => (l.length > 2 ? l.filter((_, idx) => idx !== i) : l));
+    setStopErrors((errs) => {
+      const rest: Record<number, string> = {};
+      for (const [key, value] of Object.entries(errs)) {
+        const idx = Number(key);
+        if (idx < i) rest[idx] = value;
+        else if (idx > i) rest[idx - 1] = value;
+      }
+      return rest;
+    });
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
