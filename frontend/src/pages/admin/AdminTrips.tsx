@@ -10,6 +10,24 @@ interface StopForm {
   time: string;
 }
 
+function validateStops(stops: StopForm[]): Record<number, string> {
+  const errors: Record<number, string> = {};
+  let prevTime: number | null = null;
+  stops.forEach((s, i) => {
+    if (!s.city_id || !s.time) {
+      errors[i] = "City and time are required.";
+      return;
+    }
+    const time = new Date(s.time).getTime();
+    if (prevTime !== null && time <= prevTime) {
+      errors[i] = "Must be after the previous stop's time.";
+    } else {
+      prevTime = time;
+    }
+  });
+  return errors;
+}
+
 export function AdminTrips() {
   const cities = useAsync(() => citiesApi.list(), []);
   const buses = useAsync(() => busesApi.list(), []);
@@ -23,10 +41,18 @@ export function AdminTrips() {
     { city_id: "", time: "" },
   ]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [stopErrors, setStopErrors] = useState<Record<number, string>>({});
+  const [routeError, setRouteError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function updateStop(i: number, field: keyof StopForm, value: string) {
     setStops((list) => list.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
+    setStopErrors((errs) => {
+      if (!(i in errs)) return errs;
+      const rest = { ...errs };
+      delete rest[i];
+      return rest;
+    });
   }
   const addStop = () => setStops((l) => [...l, { city_id: "", time: "" }]);
   const removeStop = (i: number) =>
@@ -35,6 +61,16 @@ export function AdminTrips() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setStopErrors({});
+    setRouteError(null);
+
+    const clientErrors = validateStops(stops);
+    if (Object.keys(clientErrors).length > 0) {
+      setFormError("Please fix the highlighted fields.");
+      setStopErrors(clientErrors);
+      return;
+    }
+
     const cityMap = new Map((cities.data ?? []).map((c: City) => [String(c.id), c.name]));
     const route = stops.map((s, i) => ({
       city_id: Number(s.city_id),
@@ -43,10 +79,6 @@ export function AdminTrips() {
       position: i,
     }));
 
-    if (route.some((r) => !r.city_id || !r.time)) {
-      setFormError("Every stop needs a city and a time.");
-      return;
-    }
     setSubmitting(true);
     try {
       await tripsApi.create({ name, price: Number(price), bus_id: Number(busId), route });
@@ -59,7 +91,12 @@ export function AdminTrips() {
       ]);
       trips.reload();
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Could not create trip");
+      if (err instanceof ApiError) {
+        setFormError(err.message);
+        if (err.fieldErrors.route) setRouteError(err.fieldErrors.route);
+      } else {
+        setFormError("Could not create trip");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +140,7 @@ export function AdminTrips() {
             <select
               value={s.city_id}
               required
+              aria-invalid={!!stopErrors[i]}
               onChange={(e) => updateStop(i, "city_id", e.target.value)}
             >
               <option value="">City…</option>
@@ -116,6 +154,7 @@ export function AdminTrips() {
               type="datetime-local"
               value={s.time}
               required
+              aria-invalid={!!stopErrors[i]}
               onChange={(e) => updateStop(i, "time", e.target.value)}
             />
             {stops.length > 2 && (
@@ -123,11 +162,13 @@ export function AdminTrips() {
                 ✕
               </button>
             )}
+            {stopErrors[i] && <span className="field-error">{stopErrors[i]}</span>}
           </div>
         ))}
         <button type="button" className="btn btn--sm" onClick={addStop}>
           + Add stop
         </button>
+        {routeError && <p className="field-error">{routeError}</p>}
 
         {formError && <p className="form-error">{formError}</p>}
         <button className="btn btn--primary" disabled={submitting}>
