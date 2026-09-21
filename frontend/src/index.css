@@ -561,6 +561,20 @@ select:focus {
   flex: 1;
   min-width: 120px;
 }
+.admin-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 120px;
+}
+.admin-form__field input {
+  width: 100%;
+}
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--danger);
+}
 .bus-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -604,9 +618,14 @@ select:focus {
 }
 .route-builder__stop {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   align-items: center;
   margin-bottom: 0.6rem;
+}
+.route-builder__stop .field-error {
+  flex-basis: 100%;
+  margin-left: calc(24px + 0.6rem);
 }
 .route-builder__pos {
   width: 24px;
